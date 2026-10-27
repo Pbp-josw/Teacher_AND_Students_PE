@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>학교폭력예방 사제동행 체육활동 - 축구 대진표 & 개인별 승점 관리 시스템</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Global Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-icon">⚽</div>
+        <div>
+          <span class="sub-badge">2026 학교폭력예방 배려·동행 프로젝트</span>
+          <h1 class="main-title">사제동행 축구 리그 & 개인별 승점 시스템</h1>
+        </div>
+      </div>
+      <div class="header-center">
+        <nav class="nav-tabs">
+          <button class="nav-tab active" id="tabSetupBtn" onclick="switchView('setup')">
+            <span class="tab-step">1</span> 인원 입력 & 팀·경기 설정
+          </button>
+          <button class="nav-tab" id="tabMatchBtn" onclick="switchView('match')">
+            <span class="tab-step">2</span> 실시간 대진 & 개인 승점
+          </button>
+        </nav>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-primary btn-start-glow" id="startMatchTopBtn" onclick="startTournament()">
+          <span class="icon">⚽</span> 경기 시작 <kbd class="kbd-hint">Enter ↵</kbd>
+        </button>
+        <button class="btn btn-secondary" onclick="window.print()" title="A4 경기 결과표 인쇄">
+          🖨️ 인쇄
+        </button>
+        <button class="btn btn-secondary" onclick="exportToCSV()" title="CSV 엑셀 파일 저장">
+          💾 엑셀 저장
+        </button>
+        <button class="btn btn-ghost" onclick="resetAllDataConfirm()" title="모든 데이터 초기화">
+          🔄 초기화
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- ============================================== -->
+      <!-- VIEW 1: SETUP (인원 입력 시트, 팀 구성, 경기 수) -->
+      <!-- ============================================== -->
+      <section id="viewSetup" class="view-section active">
+        <!-- Banner Notice -->
+        <div class="banner-tip">
+          <div class="banner-icon">💡</div>
+          <div class="banner-text">
+            <strong>이용 안내:</strong> 인원 시트에 <strong>[연번 - 학년 - 이름]</strong>을 자유롭게 입력·수정하고, <strong>4개 팀</strong> 구성 및 <strong>경기 수</strong>를 정한 뒤 <kbd>Enter</kbd> 키를 누르면 바로 경기가 시작됩니다!
+          </div>
+          <div class="banner-actions">
+            <button class="btn-xs btn-outline" onclick="loadSampleRoster(1)">📋 사제동행 명단 로드 (학생20 + 교사4)</button>
+            <button class="btn-xs btn-outline" onclick="loadSampleRoster(2)">📋 전체 명단 로드 (학생32 + 교사4)</button>
+          </div>
+        </div>
+
+        <div class="setup-grid">
+          
+          <!-- Left Column: 인원 입력 시트 (연번-학년-이름) -->
+          <div class="card roster-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <h2 class="card-title">📝 참가자 인원 입력 시트</h2>
+                <span class="counter-badge" id="rosterCountBadge">총 0명</span>
+              </div>
+              <div class="card-tools">
+                <button class="btn btn-sm btn-accent" onclick="addRow()">+ 인원 추가</button>
+                <button class="btn btn-sm btn-secondary" onclick="openPasteModal()">📋 엑셀 붙여넣기</button>
+                <button class="btn btn-sm btn-primary" onclick="openSaveRosterModal()" title="입력한 명단을 파일 또는 브라우저에 저장">💾 명단 저장</button>
+                <button class="btn btn-sm btn-secondary" onclick="openLoadRosterModal()" title="저장해둔 명단 파일 또는 저장본 불러오기">📂 명단 불러오기</button>
+                <input type="file" id="rosterFileInput" accept=".csv,.json,.txt" style="display:none;" onchange="handleRosterFileSelected(event)">
+                <button class="btn btn-sm btn-ghost" onclick="renumberRoster()" title="연번을 1번부터 차례대로 재부여">🔢 연번 재정렬</button>
+                <button class="btn btn-sm btn-danger-soft" onclick="clearRosterConfirm()">비우기</button>
+              </div>
+            </div>
+
+            <div class="sheet-container">
+              <table class="roster-table" id="rosterTable">
+                <thead>
+                  <tr>
+                    <th style="width: 70px;">연번</th>
+                    <th style="width: 140px;">학년 (교사 포함)</th>
+                    <th>이름</th>
+                    <th style="width: 140px;">소속 팀 (4팀)</th>
+                    <th style="width: 60px;">삭제</th>
+                  </tr>
+                </thead>
+                <datalist id="gradeDatalist">
+                  <option value="3학년">3학년</option>
+                  <option value="2학년">2학년</option>
+                  <option value="1학년">1학년</option>
+                  <option value="교사">교사 (인솔·참여 교원)</option>
+                </datalist>
+                <tbody id="rosterTbody">
+                  <!-- Rows injected dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="sheet-footer">
+              <span class="sheet-hint">💡 각 셀(연번, 학년, 이름)을 직접 클릭해 즉시 수정할 수 있습니다. 엑셀에서 복사해 [엑셀 붙여넣기]를 누르면 일괄 입력됩니다.</span>
+            </div>
+          </div>
+
+          <!-- Right Column: 4개 팀 구성 & 경기 수 설정 -->
+          <div class="setup-side-panel">
+            
+            <!-- 4개 팀 구성 카드 -->
+            <div class="card teams-card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">🛡️ 총 4개 팀 구성</h2>
+                  <p class="card-desc">참가자를 4개 팀으로 공평하게 배정합니다.</p>
+                </div>
+                <div class="card-tools">
+                  <button class="btn btn-sm btn-primary" onclick="autoAssignTeams('balanced')" title="학년이 각 팀에 균등하게 섞이도록 분배">
+                    ⚖️ 학년별 균등 배정
+                  </button>
+                  <button class="btn btn-sm btn-secondary" onclick="autoAssignTeams('random')" title="무작위 추첨 배정">
+                    🎲 랜덤 배정
+                  </button>
+                  <button class="btn btn-sm btn-ghost" onclick="clearTeamAssignments()">초기화</button>
+                </div>
+              </div>
+
+              <!-- Initial Team Names Config Area -->
+              <div class="team-names-setup-box">
+                <div class="team-names-setup-header">
+                  <span class="setup-sublabel">🏷️ <strong>4개 팀 이름 초기 설정:</strong> 팀 이름을 직접 변경하거나 추천을 선택하세요.</span>
+                  <div class="team-preset-pills">
+                    <span class="preset-label">빠른 프리셋:</span>
+                    <button type="button" class="btn-preset-pill" onclick="applyTeamPreset('slogan')">사제동행 슬로건</button>
+                    <button type="button" class="btn-preset-pill" onclick="applyTeamPreset('color')">컬러(Red·Blue...)</button>
+                    <button type="button" class="btn-preset-pill" onclick="applyTeamPreset('alphabet')">A·B·C·D팀</button>
+                    <button type="button" class="btn-preset-pill" onclick="applyTeamPreset('korean')">청·백·홍·녹</button>
+                  </div>
+                </div>
+
+                <div class="initial-team-inputs">
+                  <div class="team-name-input-item border-red">
+                    <span class="team-color-indicator bg-red">1팀</span>
+                    <input type="text" id="initialTeamName1" class="initial-name-input" value="1팀 (열정 Red)" 
+                      placeholder="1팀 이름 입력" oninput="updateTeamName(1, this.value)">
+                  </div>
+                  <div class="team-name-input-item border-blue">
+                    <span class="team-color-indicator bg-blue">2팀</span>
+                    <input type="text" id="initialTeamName2" class="initial-name-input" value="2팀 (지혜 Blue)" 
+                      placeholder="2팀 이름 입력" oninput="updateTeamName(2, this.value)">
+                  </div>
+                  <div class="team-name-input-item border-green">
+                    <span class="team-color-indicator bg-green">3팀</span>
+                    <input type="text" id="initialTeamName3" class="initial-name-input" value="3팀 (화합 Green)" 
+                      placeholder="3팀 이름 입력" oninput="updateTeamName(3, this.value)">
+                  </div>
+                  <div class="team-name-input-item border-yellow">
+                    <span class="team-color-indicator bg-yellow">4팀</span>
+                    <input type="text" id="initialTeamName4" class="initial-name-input" value="4팀 (희망 Yellow)" 
+                      placeholder="4팀 이름 입력" oninput="updateTeamName(4, this.value)">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4 Teams Display Grid -->
+              <div class="teams-grid">
+                <!-- Team 1: RED -->
+                <div class="team-box team-red" id="teamBox1" ondragover="allowDrop(event)" ondrop="handleDrop(event, 1)">
+                  <div class="team-box-header">
+                    <input type="text" class="team-name-input" id="teamName1" value="1팀 (열정 Red)" onchange="updateTeamName(1, this.value)">
+                    <span class="team-count-badge" id="teamCount1">0명</span>
+                  </div>
+                  <div class="team-grade-summary" id="teamSummary1">학년 분포: -</div>
+                  <div class="team-member-list" id="teamMembers1">
+                    <div class="empty-team-hint">배정된 선수가 없습니다</div>
+                  </div>
+                </div>
+
+                <!-- Team 2: BLUE -->
+                <div class="team-box team-blue" id="teamBox2" ondragover="allowDrop(event)" ondrop="handleDrop(event, 2)">
+                  <div class="team-box-header">
+                    <input type="text" class="team-name-input" id="teamName2" value="2팀 (지혜 Blue)" onchange="updateTeamName(2, this.value)">
+                    <span class="team-count-badge" id="teamCount2">0명</span>
+                  </div>
+                  <div class="team-grade-summary" id="teamSummary2">학년 분포: -</div>
+                  <div class="team-member-list" id="teamMembers2">
+                    <div class="empty-team-hint">배정된 선수가 없습니다</div>
+                  </div>
+                </div>
+
+                <!-- Team 3: GREEN -->
+                <div class="team-box team-green" id="teamBox3" ondragover="allowDrop(event)" ondrop="handleDrop(event, 3)">
+                  <div class="team-box-header">
+                    <input type="text" class="team-name-input" id="teamName3" value="3팀 (화합 Green)" onchange="updateTeamName(3, this.value)">
+                    <span class="team-count-badge" id="teamCount3">0명</span>
+                  </div>
+                  <div class="team-grade-summary" id="teamSummary3">학년 분포: -</div>
+                  <div class="team-member-list" id="teamMembers3">
+                    <div class="empty-team-hint">배정된 선수가 없습니다</div>
+                  </div>
+                </div>
+
+                <!-- Team 4: YELLOW/GOLD -->
+                <div class="team-box team-yellow" id="teamBox4" ondragover="allowDrop(event)" ondrop="handleDrop(event, 4)">
+                  <div class="team-box-header">
+                    <input type="text" class="team-name-input" id="teamName4" value="4팀 (희망 Yellow)" onchange="updateTeamName(4, this.value)">
+                    <span class="team-count-badge" id="teamCount4">0명</span>
+                  </div>
+                  <div class="team-grade-summary" id="teamSummary4">학년 분포: -</div>
+                  <div class="team-member-list" id="teamMembers4">
+                    <div class="empty-team-hint">배정된 선수가 없습니다</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 경기 수 조절 & 경기 시작 카드 -->
+            <div class="card matches-config-card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">⏱️ 축구 경기 수 및 규칙 조절</h2>
+                  <p class="card-desc">총 경기 수와 진행 방식을 설정합니다.</p>
+                </div>
+              </div>
+
+              <div class="match-mode-selector">
+                <label class="mode-radio-card active">
+                  <input type="radio" name="matchMode" value="league" checked onchange="onMatchModeChange('league')">
+                  <div class="mode-info">
+                    <div class="mode-title">⚽ 풀리그 (총 6경기)</div>
+                    <div class="mode-desc">4개 팀이 1번씩 모두 맞붙는 공평한 풀리그</div>
+                  </div>
+                </label>
+
+                <label class="mode-radio-card">
+                  <input type="radio" name="matchMode" value="tournament" onchange="onMatchModeChange('tournament')">
+                  <div class="mode-info">
+                    <div class="mode-title">🏆 토너먼트 (총 4경기)</div>
+                    <div class="mode-desc">준결승 2경기 + 3·4위전 + 결승전</div>
+                  </div>
+                </label>
+
+                <label class="mode-radio-card">
+                  <input type="radio" name="matchMode" value="double" onchange="onMatchModeChange('double')">
+                  <div class="mode-info">
+                    <div class="mode-title">🔥 더블 풀리그 (총 12경기)</div>
+                    <div class="mode-desc">홈&어웨이로 2바퀴를 도는 장기 리그</div>
+                  </div>
+                </label>
+
+                <label class="mode-radio-card">
+                  <input type="radio" name="matchMode" value="custom" onchange="onMatchModeChange('custom')">
+                  <div class="mode-info">
+                    <div class="mode-title">⚙️ 경기 수 직접 조절 (N경기)</div>
+                    <div class="mode-desc">원하는 경기 수를 직접 지정하고 대진표 편집</div>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Custom Match Count Input (Visible when custom selected) -->
+              <div class="custom-match-ctrl" id="customMatchCtrl" style="display: none;">
+                <label for="customCountInput">진행할 경기 수:</label>
+                <div class="stepper-input">
+                  <button type="button" class="btn-step" onclick="adjustCustomMatchCount(-1)">-</button>
+                  <input type="number" id="customCountInput" min="1" max="24" value="5" onchange="updateCustomMatchCount(this.value)">
+                  <button type="button" class="btn-step" onclick="adjustCustomMatchCount(1)">+</button>
+                  <span class="unit-text">경기</span>
+                </div>
+              </div>
+
+              <!-- Point Rules Preview -->
+              <div class="rules-box">
+                <div class="rules-header">
+                  <strong>🎯 개인 승점 부여 기준 (축구):</strong>
+                  <button class="btn-text-link" onclick="toggleRulesConfig()">규칙 설정 ⚙️</button>
+                </div>
+                <div class="rules-summary" id="rulesSummary">
+                  <span>팀 승리: <strong>+3점</strong></span> · 
+                  <span>팀 무승부: <strong>+1점</strong></span> · 
+                  <span>팀 패배: <strong>0점</strong></span> · 
+                  <span>개인 득점(골): <strong>+1점/골</strong></span> · 
+                  <span>도움: <strong>+1점/도움</strong></span>
+                </div>
+
+                <!-- Rules Config Drawer (collapsible) -->
+                <div class="rules-drawer" id="rulesDrawer" style="display: none;">
+                  <div class="rule-field">
+                    <label>팀 승리 시 개인 승점:</label>
+                    <input type="number" id="ruleWinPts" value="3" min="0" max="10"> 점
+                  </div>
+                  <div class="rule-field">
+                    <label>팀 무승부 시 개인 승점:</label>
+                    <input type="number" id="ruleDrawPts" value="1" min="0" max="10"> 점
+                  </div>
+                  <div class="rule-field">
+                    <label>개인 득점(1골당) 보너스 승점:</label>
+                    <input type="number" id="ruleGoalPts" value="1" min="0" max="10"> 점
+                  </div>
+                  <div class="rule-field">
+                    <label>개인 도움(1어시스트당) 보너스 승점:</label>
+                    <input type="number" id="ruleAssistPts" value="1" min="0" max="10"> 점
+                  </div>
+                  <div class="rule-field">
+                    <label>페어플레이 / 배려 칭찬 보너스:</label>
+                    <input type="number" id="ruleFairPts" value="1" min="0" max="10"> 점
+                  </div>
+                  <button class="btn btn-xs btn-primary" onclick="saveRulesConfig()">규칙 저장</button>
+                </div>
+              </div>
+
+              <!-- Main START ENTER Action Button -->
+              <div class="start-action-box">
+                <button class="btn btn-giant btn-start" id="mainStartBtn" onclick="startTournament()">
+                  <div class="btn-giant-content">
+                    <span class="giant-icon">⚽</span>
+                    <div>
+                      <div class="giant-title">경기 시작 및 대진표 확정</div>
+                      <div class="giant-sub">설정 완료 후 이 버튼 또는 키보드 <kbd class="kbd-big">Enter ↵</kbd> 키를 누르세요!</div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- VIEW 2: MATCH & SCORING (대진표, 경기 기록, 개인 승점) -->
+      <!-- ============================================== -->
+      <section id="viewMatch" class="view-section">
+        
+        <!-- Live Match Banner & Controls -->
+        <div class="match-top-bar">
+          <div class="back-link-group">
+            <button class="btn btn-sm btn-outline" onclick="switchView('setup')">
+              ← 1단계: 인원 및 팀 설정으로 돌아가기
+            </button>
+            <span class="divider">|</span>
+            <span class="match-progress-text" id="matchProgressText">진행도: 0 / 6 경기 완료</span>
+          </div>
+          <div class="top-bar-right">
+            <button class="btn btn-sm btn-accent" onclick="addNewMatchModal()">+ 경기 추가</button>
+            <button class="btn btn-sm btn-secondary" onclick="playWhistleSound()" title="심판 호루라기 소리">📢 휘슬</button>
+          </div>
+        </div>
+
+        <!-- Upper Grid: Live Stadium Scoreboard & Match Schedule -->
+        <div class="match-upper-grid">
+          
+          <!-- Live Match Scoreboard -->
+          <div class="card scoreboard-card">
+            <div class="card-header scoreboard-header">
+              <div class="badge-live" id="activeMatchBadge">현재 선택 경기: MATCH 1</div>
+              <div class="scoreboard-status" id="activeMatchStatus">대기중</div>
+            </div>
+
+            <div class="scoreboard-main">
+              <!-- Team Home -->
+              <div class="score-team score-team-home" id="activeHomeTeamBox">
+                <div class="team-badge" id="activeHomeBadge">1팀</div>
+                <h3 class="team-disp-name" id="activeHomeName">1팀 (열정 Red)</h3>
+                <div class="score-num-wrap">
+                  <span class="score-num" id="activeHomeScore">0</span>
+                </div>
+                <div class="score-btn-group">
+                  <button class="btn-score-ctrl plus" onclick="adjustActiveScore('home', 1)" title="1골 추가">+ 골</button>
+                  <button class="btn-score-ctrl minus" onclick="adjustActiveScore('home', -1)" title="1골 취소">-</button>
+                </div>
+                <button class="btn btn-xs btn-outline-light" onclick="openGoalModal('home')">⚽ 득점자 기록</button>
+              </div>
+
+              <!-- Center VS & Timer -->
+              <div class="score-center">
+                <div class="vs-text">VS</div>
+                <div class="timer-display" id="timerDisplay">10:00</div>
+                <div class="timer-controls">
+                  <button class="btn-timer" id="timerStartBtn" onclick="toggleTimer()">▶ 시작</button>
+                  <button class="btn-timer" onclick="resetTimer()">⏹ 리셋</button>
+                </div>
+                <div class="timer-min-ctrl">
+                  <button class="btn-time-adjust" onclick="adjustTimerDuration(-1)">-1분</button>
+                  <button class="btn-time-adjust" onclick="adjustTimerDuration(1)">+1분</button>
+                </div>
+              </div>
+
+              <!-- Team Away -->
+              <div class="score-team score-team-away" id="activeAwayTeamBox">
+                <div class="team-badge" id="activeAwayBadge">2팀</div>
+                <h3 class="team-disp-name" id="activeAwayName">2팀 (지혜 Blue)</h3>
+                <div class="score-num-wrap">
+                  <span class="score-num" id="activeAwayScore">0</span>
+                </div>
+                <div class="score-btn-group">
+                  <button class="btn-score-ctrl plus" onclick="adjustActiveScore('away', 1)" title="1골 추가">+ 골</button>
+                  <button class="btn-score-ctrl minus" onclick="adjustActiveScore('away', -1)" title="1골 취소">-</button>
+                </div>
+                <button class="btn btn-xs btn-outline-light" onclick="openGoalModal('away')">⚽ 득점자 기록</button>
+              </div>
+            </div>
+
+            <!-- Scoreboard Footer & Event Logs -->
+            <div class="scoreboard-footer">
+              <div class="match-events-bar" id="matchEventsBar">
+                <span class="event-title">📋 경기 기록:</span>
+                <span class="event-items" id="matchEventsList">골 기록이 없습니다. [+ 골] 또는 [⚽ 득점자 기록]을 눌러 기록하세요.</span>
+              </div>
+              <div class="scoreboard-actions">
+                <button class="btn btn-success btn-finish-match" id="finishMatchBtn" onclick="finishActiveMatch()">
+                  ✅ 경기 종료 및 개인 승점 반영
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Schedule List (대진표 리스트) -->
+          <div class="card schedule-card">
+            <div class="card-header">
+              <h2 class="card-title">📅 축구 경기 대진표</h2>
+              <span class="card-sub-count" id="scheduleCount">총 6경기</span>
+            </div>
+            <div class="schedule-list" id="scheduleList">
+              <!-- Match cards dynamically loaded -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Middle: 팀 순위표 (League Table) -->
+        <div class="card league-table-card">
+          <div class="card-header">
+            <h2 class="card-title">🏆 팀 순위표 (League Standings)</h2>
+            <span class="card-desc">팀 경기 결과(승: 3점, 무: 1점, 패: 0점) 실시간 집계</span>
+          </div>
+          <div class="table-responsive">
+            <table class="standings-table">
+              <thead>
+                <tr>
+                  <th style="width: 60px;">순위</th>
+                  <th>팀명</th>
+                  <th style="width: 70px;">경기</th>
+                  <th style="width: 60px;">승</th>
+                  <th style="width: 60px;">무</th>
+                  <th style="width: 60px;">패</th>
+                  <th style="width: 60px;">득점</th>
+                  <th style="width: 60px;">실점</th>
+                  <th style="width: 70px;">득실차</th>
+                  <th style="width: 80px;" class="th-highlight">승점</th>
+                </tr>
+              </thead>
+              <tbody id="standingsTbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Lower: ⭐ 개인별 승점 기록 순위표 (Individual Leaderboard) -->
+        <div class="card individual-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <h2 class="card-title">⭐ 개인별 승점 및 기록 순위표</h2>
+              <span class="leaderboard-badge">개인 승점 = 팀 승무패 승점 + 개인 득점/도움/페어플레이 보너스</span>
+            </div>
+            
+            <div class="card-tools">
+              <!-- Filter by Grade -->
+              <div class="filter-group">
+                <button class="btn-filter active" onclick="filterLeaderboard('all', this)">전체 보기</button>
+                <button class="btn-filter" onclick="filterLeaderboard('3학년', this)">3학년</button>
+                <button class="btn-filter" onclick="filterLeaderboard('2학년', this)">2학년</button>
+                <button class="btn-filter" onclick="filterLeaderboard('1학년', this)">1학년</button>
+                <button class="btn-filter" onclick="filterLeaderboard('교사', this)">교사</button>
+              </div>
+
+              <!-- Sort Option -->
+              <select class="select-sort" id="leaderboardSort" onchange="renderLeaderboard()">
+                <option value="points">총 승점 높은순</option>
+                <option value="goals">최다 득점(골)순</option>
+                <option value="assists">최다 도움순</option>
+                <option value="name">이름 가나다순</option>
+                <option value="no">연번순</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="leaderboard-table" id="leaderboardTable">
+              <thead>
+                <tr>
+                  <th style="width: 60px;">순위</th>
+                  <th style="width: 60px;">연번</th>
+                  <th style="width: 90px;">학년</th>
+                  <th>이름</th>
+                  <th style="width: 140px;">소속 팀</th>
+                  <th style="width: 70px;">출전</th>
+                  <th style="width: 60px;">승</th>
+                  <th style="width: 60px;">무</th>
+                  <th style="width: 60px;">패</th>
+                  <th style="width: 70px;">골 ⚽</th>
+                  <th style="width: 70px;">도움 👟</th>
+                  <th style="width: 80px;">페어플레이 ❤️</th>
+                  <th style="width: 90px;" class="th-pts">총 승점 (PTS)</th>
+                  <th style="width: 80px;">빠른 기록</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardTbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card-footer-info">
+            <span>💡 <strong>개인 승점 반영 규칙:</strong> 소속 팀이 경기에서 승리(+3점), 무승부(+1점) 시 자동 누적되며, 득점(+1점/골), 도움(+1점), 페어플레이(+1점)가 합산됩니다.</span>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- Global Printable Report View (Only appears when printing) -->
+    <div class="print-only" id="printReport">
+      <div class="print-header">
+        <h1>2026학년도 학교폭력예방을 위한 「사제동행 체육활동」 축구 경기 결과표</h1>
+        <p class="print-meta" id="printDateMeta">일시: 2026년 10월 | 대상: 학생 및 인솔교사 | 종목: 축구</p>
+      </div>
+
+      <div class="print-section">
+        <h2>1. 팀 순위 결과</h2>
+        <div id="printTeamTable"></div>
+      </div>
+
+      <div class="print-section">
+        <h2>2. 경기별 결과</h2>
+        <div id="printMatchTable"></div>
+      </div>
+
+      <div class="print-section">
+        <h2>3. 개인별 승점 및 수상 명단 (상위)</h2>
+        <div id="printPlayerTable"></div>
+      </div>
+
+      <div class="print-sign">
+        <span>담당교사: ________________ (인)</span>
+        <span>체육부장: ________________ (인)</span>
+        <span>교장: ________________ (인)</span>
+      </div>
+    </div>
+
+    <!-- MODAL 1: Excel Paste Modal -->
+    <div class="modal-overlay" id="pasteModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>📋 엑셀 / 한글 명단 붙여넣기</h3>
+          <button class="modal-close" onclick="closePasteModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            엑셀이나 한글에서 <strong>[연번], [학년(또는 교사)], [이름]</strong> 열을 복사(<kbd>Ctrl+C</kbd>)한 후 아래 상자에 붙여넣기(<kbd>Ctrl+V</kbd>)하세요. 
+            (교원의 경우 학년에 <strong>'교사'</strong>를 입력하시면 4개 팀에 골고루 균등 배정되며 통합 관리됩니다.)
+          </p>
+          <textarea id="pasteTextarea" class="paste-box" placeholder="1	3학년	김주원
+2	3학년	박보성
+3	2학년	김수종
+4	교사	김선생
+5	교사	이선생
+..."></textarea>
+          <div class="paste-options">
+            <label><input type="checkbox" id="pasteOverwrite" checked> 기존 명단 지우고 새로 덮어쓰기</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closePasteModal()">취소</button>
+          <button class="btn btn-primary" onclick="applyPastedRoster()">명단 적용하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 2: Goal Scorer Record Modal -->
+    <div class="modal-overlay" id="goalModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="goalModalTitle">⚽ 득점 및 도움 기록</h3>
+          <button class="modal-close" onclick="closeGoalModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="goalScorerSelect"><strong>득점 선수 (골 ⚽ +1점):</strong></label>
+            <select id="goalScorerSelect" class="form-select">
+              <!-- populated dynamically -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="goalAssistSelect">도움 선수 (어시스트 👟 +1점) - 선택사항:</label>
+            <select id="goalAssistSelect" class="form-select">
+              <option value="">(도움 없음 / 단독 골)</option>
+              <!-- populated dynamically -->
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeGoalModal()">취소</button>
+          <button class="btn btn-primary" onclick="saveGoalRecord()">기록 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 3: Custom Add Match Modal -->
+    <div class="modal-overlay" id="addMatchModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>➕ 새 축구 경기 추가</h3>
+          <button class="modal-close" onclick="closeAddMatchModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>홈 팀 (Home):</label>
+              <select id="newMatchHome" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label>어웨이 팀 (Away):</label>
+              <select id="newMatchAway" class="form-select"></select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeAddMatchModal()">취소</button>
+          <button class="btn btn-primary" onclick="confirmAddMatch()">경기 추가</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 4: Save Roster Modal -->
+    <div class="modal-overlay" id="saveRosterModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>💾 현재 참가자 명단 저장</h3>
+          <button class="modal-close" onclick="closeSaveRosterModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            현재 인원 시트에 입력된 <strong>명단(연번·학년·이름)</strong>과 <strong>팀 설정</strong>을 저장합니다. 원하는 저장 방식을 선택하세요:
+          </p>
+          <div class="save-options-list">
+            <div class="save-option-card" onclick="saveRosterToFile('csv')">
+              <div class="save-opt-icon">📑</div>
+              <div class="save-opt-info">
+                <strong>엑셀 호환 CSV 파일로 저장</strong>
+                <p>PC 다운로드 폴더에 CSV 파일로 저장합니다. 엑셀에서 열 수 있고 언제든 다시 불러올 수 있습니다.</p>
+              </div>
+              <button class="btn btn-sm btn-primary">CSV 다운로드</button>
+            </div>
+
+            <div class="save-option-card" onclick="saveRosterToFile('json')">
+              <div class="save-opt-icon">📦</div>
+              <div class="save-opt-info">
+                <strong>전체 설정 백업 파일(JSON)로 저장</strong>
+                <p>명단과 4개 팀 설정 전체를 온전하게 보관하는 전용 백업 파일로 저장합니다.</p>
+              </div>
+              <button class="btn btn-sm btn-secondary">JSON 백업</button>
+            </div>
+
+            <div class="save-option-card" onclick="saveRosterToBrowserPreset()">
+              <div class="save-opt-icon">⚡</div>
+              <div class="save-opt-info">
+                <strong>이 브라우저에 '내 명단'으로 저장</strong>
+                <p>파일 없이 이 브라우저에 바로 저장해 두고 언제든 원클릭으로 불러옵니다.</p>
+              </div>
+              <button class="btn btn-sm btn-accent">브라우저 저장</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeSaveRosterModal()">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 5: Load Roster Modal -->
+    <div class="modal-overlay" id="loadRosterModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>📂 참가자 명단 불러오기</h3>
+          <button class="modal-close" onclick="closeLoadRosterModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="save-options-list">
+            <div class="save-option-card" onclick="triggerLoadRosterFile()">
+              <div class="save-opt-icon">📁</div>
+              <div class="save-opt-info">
+                <strong>내 PC에서 명단 파일 열기 (CSV / JSON / TXT)</strong>
+                <p>이전에 저장해둔 CSV나 JSON 명단 파일을 선택해 시트에 바로 적용합니다.</p>
+              </div>
+              <button class="btn btn-sm btn-primary">파일 선택</button>
+            </div>
+
+            <div class="save-option-card" onclick="loadRosterFromBrowserPreset()">
+              <div class="save-opt-icon">⚡</div>
+              <div class="save-opt-info">
+                <strong>브라우저에 저장된 '내 명단' 불러오기</strong>
+                <p id="browserSavedPresetMeta">브라우저에 보관된 명단을 즉시 복원합니다.</p>
+              </div>
+              <button class="btn btn-sm btn-accent" id="loadBrowserPresetBtn">불러오기</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeLoadRosterModal()">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Toast Notification -->
+    <div id="toast" class="toast">알림 메시지</div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
